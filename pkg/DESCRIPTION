@@ -1,0 +1,11 @@
+Package: provenance
+Type: Package
+Title: Data visualisation for Provenance Analysis
+Version: 0.1-1
+Date: 2014-06-08
+Author: Martin Rittner
+Maintainer: Martin Rittner <sw@thegeologician.net>
+Description: Easy visualisation and analysis of sediment provenance proxy data as used in the Earth Sciences. Provides plotting functions for KDEs, MDS and 3-way MDS maps, allowing multi-proxy sample comparisons.
+License: GPL (>=2)
+Depends: ggplot2, MASS, scales
+Suggests: gdata
