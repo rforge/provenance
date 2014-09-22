@@ -1,7 +1,7 @@
 # modified from:
 # Sircombe, K.N. & Hazelton, M.L., 2004.
 # Comparison of detrital zircon age distributions by kernel functional estimation.
-# Sedimentary Geology, 171(1), pp.91–111.
+# Sedimentary Geology, 171(1), pp.91-111.
 #
 # Martin Rittner, 2013
 
@@ -10,7 +10,7 @@
 ############################################################
 
 adapt.f<-function(x,h,eval,kernel="gauss"){
-	#returns the densities of a KDE for input data x, over positions eval, with a kernel bandwidth h 
+	#returns the densities of a KDE for input data x, over positions eval, with a kernel bandwidth h
 	f<-eval*0
 	for(i in 1:length(eval)){
 		f[i]<-mean(dnorm(x-eval[i],0,sd=h))
@@ -64,7 +64,7 @@ Perm.Test<-function(x,y,sigx,sigy,c.con=0,REP=1000){
 	if(c.con<=0)c.con<-max(sig2.con(x,sigx),sig2.con(y,sigy))
 	dxy<-dXY(x,sigx^2,y,sigy^2,c.con)
 	P<-0
-	
+
 	for(i in 1:REP){
 		perm.index<-sample(1:n)
 		x.index<-perm.index[1:nx]

@@ -12,7 +12,8 @@
 ### load test data                    ###
 #########################################
 
-alldata<-read.csv("/media/data/martin/LOESS/data/Tb_raw/Tb_all.csv",stringsAsFactors=FALSE)
+#alldata<-read.csv("/media/data/martin/LOESS/data/Tb_raw/Tb_all.csv",stringsAsFactors=FALSE)
+alldata<-read.csv("/media/ldata/martin/LOESS/data/zrn_UPb/raw_data_Tb/Tb_all.csv",stringsAsFactors=FALSE)
 alldata<-as.list(alldata)
 for(i in 1:length(alldata)){alldata[[i]]<-alldata[[i]][!is.na(alldata[[i]])]}
 
@@ -74,12 +75,12 @@ for(i in 1:3){
 	csmpl<-tcast[i]
 	curname<-names(csmpl)
 	message("subsampling ",curname)
-	
+
 	reps<-lapply(csmpl,FUN=function(x){return(replicate(n=nreps,expr=sample(x,floor(0.7*length(x)))))})
 	reps<-lapply(reps,as.data.frame)
 	reps<-unlist(reps,recursive=FALSE)
 	reps<-c(reps,tcast)
-	
+
 	diss = dissimilarity(reps)
 	locs<-as.data.frame(isoMDS(as.matrix(diss))$points)
 	names(locs)<-c("x","y")
@@ -279,7 +280,183 @@ plotMDS(mds,diss,col="area")
 ########
 ggplot()+geom_point(data=alldata,aes(x=age,y=ageerr),colour="#00000022")
 
-# #######################################################
+########################################################
+# Andy's / Sanjeev's data, attempted 3-way MDS         #
+########################################################
+require(gdata)
+require(provenance)
+#source("/media/ldata/martin/Projects/coding/R/provenance/pkg/noninst/dev_functions.r")
+source("/media/ldata/martin/Projects/coding/R/provenance/pkg/noninst/dev_functions.r")
+require(smacof)
+#require(vegan)
+
+colrs<-data.frame(stringsAsFactors=FALSE,site=c("a) Modern river","b) GS 10","c) GS 11","d) GS  7","e) KNL 1","f) SRH 5"),
+									rgb=brewer_pal(type="qual",palette=3)(6))
+
+
+#### Zircon data
+
+zrndata<-read.xls("/home/martin/Documents/LA-Lab-related/FOR_/for_Andy/Sanjeevs_data/AJIT_DZages_MDS.xls",stringsAsFactors=FALSE)
+zrndata<-as.list(zrndata)
+for(i in 1:length(zrndata)){zrndata[[i]]<-zrndata[[i]][!is.na(zrndata[[i]])]}
+
+site<-rep("n/a",length(zrndata))
+names(site)<-names(zrndata)
+site[grep("MR.*",names(site))]<-"a) Modern river"
+site[grep("GS\\.10.*",names(site))]<-"b) GS 10"
+site[grep("GS\\.11.*",names(site))]<-"c) GS 11"
+site[grep("GS7.*",names(site))]<-"d) GS  7"
+site[grep("KNL.*",names(site))]<-"e) KNL 1"
+site[grep("SRH.*",names(site))]<-"f) SRH 5"
+
+cols<-colrs$rgb[match(site,colrs$site)]
+
+plotKDE(zrndata,limits=c(0,3500),bandwidth=24,classes=site,fcolour=cols)
+ggsave("/home/martin/Documents/LA-Lab-related/FOR_/for_Andy/Sanjeevs_data/DZ_ages_KDE.pdf",width=10,height=8)
+
+zrndiss=dissimilarity(zrndata)
+zrnmds<-isoMDS(as.matrix(zrndiss))$points
+zrnmds<-as.data.frame(zrnmds)
+names(zrnmds)<-c("x","y")
+zrnmds$smpl<-row.names(zrnmds)
+zrnmds$site<-site
+
+plotMDS(zrnmds,zrndiss,col="site",nearest=FALSE,stretch=TRUE,fcolour=unique(cols))
+ggsave("/home/martin/Documents/LA-Lab-related/FOR_/for_Andy/Sanjeevs_data/DZ_ages_MDS.pdf",width=10,height=8)
+
+
+#### Mica data
+
+mcadata<-read.xls("/home/martin/Documents/LA-Lab-related/FOR_/for_Andy/Sanjeevs_data/MicaData.xlsx",stringsAsFactors=FALSE)
+mcadata<-as.list(mcadata)
+for(i in 1:length(mcadata)){
+	mcadata[[i]]<-as.numeric(mcadata[[i]])
+	mcadata[[i]]<-mcadata[[i]][!is.na(mcadata[[i]])]
+}
+
+site<-rep("n/a",length(mcadata))
+names(site)<-names(mcadata)
+site[grep("MR.*",names(site))]<-"a) Modern river"
+site[grep("GS\\.10.*",names(site))]<-"b) GS 10"
+site[grep("GS\\.11.*",names(site))]<-"c) GS 11"
+site[grep("GS7.*",names(site))]<-"d) GS  7"
+site[grep("KNL.*",names(site))]<-"e) KNL 1"
+site[grep("SRH.*",names(site))]<-"f) SRH 5"
+
+cols<-colrs$rgb[match(site,colrs$site)]
+
+plotKDE(mcadata,limits=c(0,50),bandwidth=0.6,classes=site,fcolour=cols)
+ggsave("/home/martin/Documents/LA-Lab-related/FOR_/for_Andy/Sanjeevs_data/Mica_ages_KDE.pdf",width=10,height=8)
+
+mcadiss=dissimilarity(mcadata,metric="C-v-M")
+mcamds<-isoMDS(as.matrix(mcadiss))$points
+mcamds<-as.data.frame(mcamds)
+names(mcamds)<-c("x","y")
+mcamds$smpl<-row.names(mcamds)
+mcamds$site<-site
+
+plotMDS(mcamds,mcadiss,col="site",nearest=FALSE,stretch=TRUE,fcolour=unique(cols))
+ggsave("/home/martin/Documents/LA-Lab-related/FOR_/for_Andy/Sanjeevs_data/Mica_ages_MDS.pdf",width=10,height=8)
+
+
+#### 3-way MDS
+
+zrndata<-zrndata[names(zrndata)%in%names(mcadata)]
+zrndiss=dissimilarity(zrndata,metric="C-v-M")
+mcadata<-mcadata[names(mcadata)%in%names(zrndata)]
+mcadiss=dissimilarity(mcadata,metric="C-v-M")
+alldist<-list(DZ_ages=zrndiss,Mca_ages=mcadiss)
+myindy<-smacofIndDiff(alldist,constraint="indscal")
+indymds<-as.data.frame(myindy$gspace)
+names(indymds)<-c("x","y")
+row.names(indymds)<-names(zrndata)[as.numeric(row.names(indymds))]
+indymds$smpl<-row.names(indymds)
+indymds$site<-site[match(indymds$smpl,names(site))]
+
+cols<-colrs$rgb[match(indymds$site,colrs$site)]
+
+plotMDS(indymds,col="site",nearest=FALSE,stretch=TRUE,fcolour=unique(cols))
+ggsave("/home/martin/Documents/LA-Lab-related/FOR_/for_Andy/Sanjeevs_data/3-way_MDS_mica_zircon.pdf",width=10,height=8)
+
+#get weights out of this:
+wgts<-data.frame(x=sapply(myindy$cweights,FUN=function(x){return(x["D1","D1"])}),y=sapply(myindy$cweights,FUN=function(x){return(x["D2","D2"])}))
+qplot(data=wgts,x=x,y=y,label=row.names(wgts),geom="text")
+
+########################################################
+# Tamsin's data                                        #
+########################################################
+require(provenance)
+basepath<-"/home/martin/Documents/LA-Lab-related/FOR_/for_Tamsin"
+
+## find all ..._preferred.csv files in this folder, load them into a data object called 'data':
+# list all .._preferred.csv files
+fls<-list.files(path=basepath,pattern=".*_preferred.csv",full.names=TRUE)
+# prepare data object
+data<-list()
+# load the individual data files
+for(f in fls){
+	# extract sample names from filename
+	spl<-sub("_preferred.csv","",basename(f))
+	#check if multiple samples
+	smpls<-unlist(strsplit(spl,"_"))
+	smpls<-smpls[smpls!="rerun"]
+	smpls<-sub("[^[:digit:]]","",smpls)
+	# load data
+	cdat<-read.table(file=f,header=TRUE,sep=",",stringsAsFactors=FALSE,skip=6)
+	# skip line without a 'preferred age'
+	cdat<-cdat[!is.na(cdat$preferred.age),]
+	# copy the remaining ages into the 'data' object
+	for(s in smpls){
+		if(any(grep("[[:digit:]]{4}",cdat$sample))){
+			if(any(names(data) %in% s)){
+				data[[s]]<-c(data[[s]],cdat$preferred.age[grep(s,cdat$sample)])
+			}else{
+				data[[s]]<-cdat$preferred.age[grep(s,cdat$sample)]
+			}
+		}else{
+			if(any(names(data) %in% s)){
+				data[[s]]<-c(data[[s]],cdat$preferred.age)
+			}else{
+				data[[s]]<-cdat$preferred.age
+			}
+		}
+	}
+}
+
+###additional data analysed by Andy:
+require(gdata)
+inpath="/home/martin/Documents/LA-Lab-related/FOR_/for_Tamsin/U-Pbdata.xls"
+sheets<-sheetNames(inpath)
+for(i in 1:length(sheets)){
+	spl<-gsub("[^[:digit:]]","",sheets[i])
+	cdat<-read.xls(xls=inpath, sheet=i, header=FALSE, sep=",",stringsAsFactors=FALSE, skip=2)
+	#Very dangerous! assumes exactly same structure each time!
+	ages<-as.numeric(cdat[[19]])
+	ages<-ages[!is.na(ages)]
+	data[[spl]]<-ages
+}
+
+sapply(data,length)
+
+plotKDE(data)
+ggsave("/home/martin/Documents/LA-Lab-related/FOR_/for_Tamsin/Tamsin_comparison.pdf",width=10,height=8)
+
+plotKDE(data,logx=TRUE)
+ggsave("/home/martin/Documents/LA-Lab-related/FOR_/for_Tamsin/Tamsin_comparison_log.pdf",width=10,height=8)
+
+##### plotting KDEs:
+# we need the 'provenance' package
+require(provenance)
+plotKDE(data,markers="dash")
+
+#to choose output file format, just change extension. width and height are in inches.
+#For raster files, you can also give the resolution.
+ggsave(paste(basepath,"Tamsin_comparison.pdf",sep="/"),width=10,height=8)
+
+#plot in logarithmic scale
+plotKDE(data,markers="dash",logx=TRUE)
+ggsave(paste(basepath,"Tamsin_comparison_log.pdf",sep="/"),width=10,height=8)
+
 
 ###########################################################
 # comparing old laser and new laser data #
@@ -287,8 +464,8 @@ ggplot()+geom_point(data=alldata,aes(x=age,y=ageerr),colour="#00000022")
 
 require(kdemds)
 
-#fls<-list.files(path="/media/data/martin/LOESS/data/Tb_raw/",pattern="Tb.*_preferred.csv",full.names=TRUE)
-fls<-list.files(path="/media/ldata/martin/LOESS/data/Tb_raw/",pattern="Tb.*_preferred.csv",full.names=TRUE)
+fls<-list.files(path="/media/ldata/martin/LOESS/data/zrn_UPb/raw_data_Tb/",pattern="Tb.*_preferred.csv",full.names=TRUE)
+#fls<-list.files(path="/media/ldata/martin/LOESS/data/Tb_raw/",pattern="Tb.*_preferred.csv",full.names=TRUE)
 
 #read all data:
 alldata<-list()
@@ -370,7 +547,7 @@ qplot(data=tdf,x=x,y=d,geom="line")
 
 #"optimal bandwidth" following Jann 2007:
 dat<-alldata[["Tb22"]]
-sigd<-min(sd(dat),IQR(dat))	
+sigd<-min(sd(dat),IQR(dat))
 delk<-(1/(4*pi))^(1/10)
 hs<-1.159*delk*sigd*length(dat)^(-1/5)
 
@@ -409,38 +586,38 @@ gwtkdensity <- function() {
 	availDists <- c(Normal = "rnorm", Exponential="rexp")
 	availKernels <- c("gaussian", "epanechnikov", "rectangular",
 										"triangular", "biweight", "cosine", "optcosine")
-	
-	
+
+
 	updatePlot <- function(h,...) {
 		x <- do.call(availDists[svalue(distribution)],list(svalue(sampleSize)))
 		plot(density(x, adjust = svalue(bandwidthAdjust), kernel = svalue(kernel)))
 		rug(x)
 	}
-	
+
 	##The widgets
 	win <- gwindow("gwtkdensity")
 	gp <- ggroup(horizontal=FALSE, cont=win)
-	
+
 	tmp <- gframe("Distribution", container=gp, expand=TRUE)
 	distribution <- gradio(names(availDists), horizontal=FALSE,
 												 cont=tmp,
 												 handler=updatePlot)
-	
-	
+
+
 	tmp <- gframe("Sample size", container=gp, expand=TRUE)
 	sampleSize <- gradio(c(50,100,200, 300), cont=tmp,
 											 handler =updatePlot)
-	
-	
+
+
 	tmp <- gframe("Kernel", container=gp, expand=TRUE)
 	kernel <- gcombobox(availKernels, cont=tmp,
 											handler=updatePlot)
-	
+
 	tmp <- gframe("Bandwidth adjust", container=gp, expand=TRUE)
 	bandwidthAdjust <- gslider(from=0,to=2,by=.01, value=1,
 														 cont=tmp, expand=TRUE,
 														 handler=updatePlot)
-	
+
 }
 
 ###
@@ -476,3 +653,156 @@ pts<-as.matrix(mds[mds$reg=="Tarim basin",c("x","y")])
 fell<-dataEllipse(pts,draw=FALSE,levels=0.9)
 g<-last_plot()
 g+geom_path(data=as.data.frame(fell),aes(x=x,y=y))
+
+
+##################################################
+#test new metrics:
+require(provenance)
+#source("/media/ldata/martin/Projects/coding/R/provenance/pkg/noninst/dev_functions.r")
+source("/home/martin/Data/coding/R/provenance/pkg/noninst/dev_functions.r")
+
+##### load data
+#fls<-list.files(path="/media/ldata/martin/LOESS/data/zrn_UPb/raw_data_Tb/",pattern="Tb.*_preferred.csv",full.names=TRUE)
+fls<-list.files(path="/home/martin/Data/LOESS/data/zrn_UPb/raw_data_Tb",pattern="Tb.*_preferred.csv",full.names=TRUE)
+
+#read all data:
+alldata<-list()
+allages<-list()
+for(f in fls){
+	spl<-sub("_preferred.csv","",basename(f))
+	cdat<-read.table(file=f,header=TRUE,sep=",",stringsAsFactors=FALSE,skip=6)
+	for(i in 2:length(cdat))cdat[[i]]<-as.numeric(cdat[[i]])
+	alldata[[spl]]<-cdat
+	allages[[spl]]<-cdat$preferred.age
+}
+
+#merge measurement replicates
+reps<-names(alldata)[grep("_new",names(alldata))]
+for(s in reps){
+	old<-sub("_new","",s)
+	alldata[[old]]<-rbind(alldata[[old]],alldata[[s]])
+	alldata[[s]]<-NULL
+	allages[[old]]<-c(allages[[old]],allages[[s]])
+	allages[[s]]<-NULL
+}
+##### end load data
+
+
+
+diss<-dissimilarity(allages,metric="C-v-M")
+
+require(MASS)
+mds<-isoMDS(as.matrix(diss))$points
+mds<-as.data.frame(mds)
+names(mds)<-c("x","y")
+
+#by region:
+ti<-paste("Tb",c("01","02","45","46","48","49","50","51","52"),sep="")	#Tian Shan
+ta<-paste("Tb",c("04","05","07","11b","20","21","22","23","26","27","28","29","31"),sep="")	#Tarim basin, all
+tn<-paste("Tb",c(),sep="")	#Tarim basin north
+ts<-paste("Tb",c(),sep="")	#Tarim basin south
+ls<-paste("Tb",c("34"),sep="")	#loess
+kl<-paste("Tb",c("09","12","15","19","35"),sep="")	#Kunlun
+kk<-paste("Tb",c("38","39","41","42","43"),sep="")	#Pamir
+jg<-paste("Tb",c("62","57","58","60","54"),sep="")	#Junggar
+
+region<-rep("n/a",length(alldata))
+region[names(alldata) %in% ta]<-"Tarim basin"
+region[names(alldata) %in% ls]<-"Tarim loess"
+region[names(alldata) %in% ti]<-"Tian Shan"
+region[names(alldata) %in% kl]<-"Kunlun"
+region[names(alldata) %in% kk]<-"Pamir"
+region[names(alldata) %in% jg]<-"Junggar basin"
+names(region)<-names(alldata)
+
+mds$area<-region
+
+plotMDS(mds,diss,col="area",nearest=FALSE)
+
+tclust<-hclust(as.dist(diss),method="ward.D")
+cluster<-cutree(tclust,k=5)
+mds$cluster<-factor(cluster)
+plotMDS(mds,diss,col="cluster",nearest=FALSE)
+
+
+##Sircombe & Hazelton
+source('/media/ldata/martin/Projects/coding/R/provenance/pkg/noninst/dev_functions.r')
+allages<-lapply(alldata,FUN=function(x){return(x$preferred.age)})
+allaes<-lapply(alldata,FUN=function(x){return(x$X1.sigma.age)})
+names(allages)<-names(alldata)
+names(allaes)<-names(alldata)
+for(i in 1:length(allages)){
+	rejects<-is.na(allages[[i]])|is.na(allaes[[i]])
+	allages[[i]]<-allages[[i]][!rejects]
+	allaes[[i]]<-allaes[[i]][!rejects]
+}
+
+diss<-dissSH(allages,allaes)
+
+# ##also nice:
+# library(reshape2)
+# tag<-melt(allages,variable.name="sample",value.name="Ma")
+# tae<-melt(allaes,variable.name="sample",value.name="Ma")
+# tae<-melt(allaes,variable.name="sample",value.name="err")
+# tac<-cbind(tag,tae)
+# ggplot(tac)+geom_errorbar(aes(x=L1,ymin=Ma-2*err,ymax=Ma+2*err))+geom_point(aes(x=L1,y=Ma))
+# ggplot(tac)+geom_point(aes(x=L1,y=Ma),position="jitter")+scale_y_log10()
+# ggplot(tac)+geom_point(aes(x=Ma,y=err))+scale_y_log10()+stat_smooth(aes(x=Ma,y=err))
+
+
+
+#########################################
+## fix / improve jann KDEs
+
+source('~/Data/coding/R/provenance/pkg/noninst/dev_functions.r')
+
+looky<-data.frame(x=seq(0,3,by=0.01))
+looky$gaussian<-Kfun(looky$x,kernel="gaussian")
+looky$epanechnikov<-Kfun(looky$x,kernel="epanechnikov")
+looky$triangular<-Kfun(looky$x,kernel="triangular")
+looky$epan2<-Kfun(looky$x,kernel="epan2")
+looky$rectangular<-Kfun(looky$x,kernel="rectangular")
+
+dlook<-reshape2::melt(looky,id.vars="x",variable.name="kern",value.name="dens")
+qplot(data=dlook,x=x,y=dens,colour=kern,geom="line")
+
+library(microbenchmark)
+microbenchmark(Kfun(looky$x,kernel="gaussian"),provenance::Kfun(looky$x,kernel="gaussian"),times=100)
+microbenchmark(Kfun(looky$x,kernel="epanechnikov"),provenance::Kfun(looky$x,kernel="epanechnikov"),times=100)
+microbenchmark(Kfun(looky$x,kernel="triangular"),provenance::Kfun(looky$x,kernel="triangular"),times=100)
+
+microbenchmark(provenance::Kfun(looky$x,kernel="gaussian"),
+	provenance::Kfun(looky$x,kernel="epanechnikov"),
+	provenance::Kfun(looky$x,kernel="triangular"),
+	Kfun(looky$x,kernel="gaussian"),
+	Kfun(looky$x,kernel="epanechnikov"),
+	Kfun(looky$x,kernel="triangular"),times=1000)
+
+microbenchmark(Kfun(looky$x,kernel="gaussian"),
+	Kfun(looky$x,kernel="epanechnikov"),
+	Kfun(looky$x,kernel="epan2"),
+	Kfun(looky$x,kernel="rectangular"),
+	Kfun(looky$x,kernel="triangular"),times=1000)
+
+optimal_bw(allages$Tb22[!is.na(allages$Tb22)],n=2^10)
+microbenchmark(testkde<-jkde(allages$Tb22[!is.na(allages$Tb22)],n=2^10,kernel="gaussian"),times=1)
+qplot(x=testkde[1,],y=testkde[2,],geom="line")
+
+> microbenchmark(testkde<-akde(allages$Tb22[!is.na(allages$Tb22)],n=2^10,kernel="gaussian"),times=10)
+Unit: seconds
+expr      min       lq   median       uq      max neval
+testkde <- akde(allages$Tb22[!is.na(allages$Tb22)], n = 2^10,      kernel = "gaussian") 4.362579 4.398488 4.428656 4.434649 4.575811    10
+
+> microbenchmark(gkde(allages$Tb22[!is.na(allages$Tb22)],n=2^10,kernel="gaussian",method="botev"),gkde(allages$Tb22[!is.na(allages$Tb22)],n=2^10,kernel="gaussian",method="R"),gkde(allages$Tb22[!is.na(allages$Tb22)],n=2^10,kernel="gaussian",method="standard"),gkde(allages$Tb22[!is.na(allages$Tb22)],n=2^10,kernel="gaussian",method="adaptive"),times=10)
+Unit: milliseconds
+expr        min         lq
+gkde(allages$Tb22[!is.na(allages$Tb22)], n = 2^10, kernel = "gaussian",      method = "botev")   17.97363   18.03254
+gkde(allages$Tb22[!is.na(allages$Tb22)], n = 2^10, kernel = "gaussian",      method = "R")   17.05307   17.21788
+gkde(allages$Tb22[!is.na(allages$Tb22)], n = 2^10, kernel = "gaussian",      method = "standard") 1469.45016 1499.47522
+gkde(allages$Tb22[!is.na(allages$Tb22)], n = 2^10, kernel = "gaussian",      method = "adaptive") 2557.08560 2561.44284
+median         uq        max neval
+18.16085   18.43353   20.40214    10
+17.24960   17.28232   17.47330    10
+1506.33328 1527.13816 1553.90730    10
+2596.49935 2602.30708 2675.29361    10
+>

@@ -1,6 +1,6 @@
-\name{kdemds-package}
-\alias{kdemds-package}
-\alias{kdemds}
+\name{provenance-package}
+\alias{provenance-package}
+\alias{provenance}
 \docType{package}
 \title{
 Plotting KDEs and MDS maps of geochronology and geochemistry data
@@ -11,7 +11,7 @@ Plotting makes heavy use of the package ggplot2, the produced plot objects can b
 }
 \details{
 \tabular{ll}{
-Package: \tab kdemds\cr
+Package: \tab provenance\cr
 Type: \tab Package\cr
 Version: \tab 0.2-4\cr
 Date: \tab 2014-03-12\cr

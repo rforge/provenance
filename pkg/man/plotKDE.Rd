@@ -8,7 +8,7 @@ Plot KDEs of age distributions
 Flexible wrapper to plot KDEs of age populations for geochronology.
 }
 \usage{
-plotKDE(data, title, limits = c(0, 3000), breaks = NA, bandwidth = NULL, fcolour = NA, splitat = NA, plot = names(data), periods = FALSE, classes = NA)
+plotKDE(data, title, limits = c(0, 3000), breaks = NA, bandwidth = NULL, fcolour = NA, splitat = NA, plotonly = names(data), periods = FALSE, classes = NA, hist = FALSE, markers = "none", order = TRUE, logx = FALSE, method = "botev",...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -19,10 +19,10 @@ input ages, either as a data.frame() with samples in separate columns for creati
 optional string giving the title for single KDE plot, or vector of strings, same length as (selected columns of) data
 }
   \item{limits}{
-optional vector of length 2 giving the age range to plot, or vector of length 4 giving the age ranges for the two split plots (see "splitat" below)
+optional vector of length 2 giving the age range to plot, or vector of length 4 giving the age ranges for the two split plots (see "splitat" below). Set to limits = -1 to choose min and max values of data.
 }
   \item{breaks}{
-tba, x-axis breaks, optional
+vector of x-axis breaks, optional
 }
   \item{bandwidth}{
 optional bandwidth overriding automatic bandwidth calculation. By default, one common bandwidth based on individual "optimal" bandwidths is chosen for all plots, if several are compared. Half bandwidth is used for younger ages in split plot; vector of length 2 to override split plots separately. Set to -1 or FALSE to use calculated "optimal" bandwidth for each plot.
@@ -33,7 +33,7 @@ optional fill colour, either single colour to be applied to all KDEs, or vector 
   \item{splitat}{
 optional age to split plot at. Half-plots will occupy same amount of space. Limits of length 4 will override splitat.
 }
-  \item{plot}{
+  \item{plotonly}{
 optional string vector of column names to select from data. Other columns will be ignored. If given, title and classes must be of same length as resulting selection.
 }
   \item{periods}{

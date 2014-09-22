@@ -37,6 +37,9 @@ boolean - plot data labels (taken from row.names of mds)?
   \item{symbols}{
 boolean - plot data points (useful if plotting only labels)?
 }
+  \item{stretch}{
+boolean - stretch x and y axes to data extend (TRUE), or plot in fixed x/y scale ratio (FALSE, default)
+}
 }
 \details{
 }
