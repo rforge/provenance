@@ -423,6 +423,50 @@ for(f in fls){
 	}
 }
 
+########################################################
+# Ajit's data                                        #
+########################################################
+require(provenance)
+basepath<-"/home/martin/Documents/LA-Lab-related/FOR_/for_Ajit"
+
+## find all ..._preferred.csv files in this folder, load them into a data object called 'data':
+# list all .._preferred.csv files
+fls<-list.files(path=basepath,pattern=".*_preferred.csv",full.names=TRUE)
+# prepare data object
+data<-list()
+# load the individual data files
+for(f in fls){
+	# extract sample names from filename
+	spl<-sub("_preferred.csv","",basename(f))
+	#check if multiple samples
+	smpls<-unlist(strsplit(spl,"-"))
+# 	smpls<-smpls[smpls!="rerun"]
+# 	smpls<-sub("[^[:digit:]]","",smpls)
+	# load data
+	cdat<-read.table(file=f,header=TRUE,sep=",",stringsAsFactors=FALSE,skip=6)
+	# skip line without a 'preferred age'
+	cdat<-cdat[!is.na(cdat$preferred.age),]
+	# copy the remaining ages into the 'data' object
+	for(s in smpls){
+		if(any(grep("KA[[:digit:]]{2}",cdat$sample))){
+			if(any(names(data) %in% s)){
+				data[[s]]<-c(data[[s]],cdat$preferred.age[grep(sub("\\.","",s),cdat$sample)])
+			}else{
+				data[[s]]<-cdat$preferred.age[grep(sub("\\.","",s),cdat$sample)]
+			}
+		}else{
+			if(any(names(data) %in% s)){
+				data[[s]]<-c(data[[s]],cdat$preferred.age)
+			}else{
+				data[[s]]<-cdat$preferred.age
+			}
+		}
+	}
+}
+
+plotKDE(data,logx=TRUE)
+ggsave(filename=file.path(basepath,"analyses_141119_log.pdf"),width=8,height=10)
+
 ###additional data analysed by Andy:
 require(gdata)
 inpath="/home/martin/Documents/LA-Lab-related/FOR_/for_Tamsin/U-Pbdata.xls"

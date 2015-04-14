@@ -2,7 +2,7 @@
 ## stacked KDE-Plots, minimal stacking height:
 
 require(provenance)
-data<-read.csv("/media/ldata/martin/LOESS/data/zrn_UPb/raw_data_Tb/Tb_all.csv",header=TRUE,stringsAsFactors=FALSE)
+data<-read.csv("/home/martin/Data/LOESS/data/zrn_UPb/raw_data_Tb/Tb_all.csv",header=TRUE,stringsAsFactors=FALSE)
 #data<-read.csv("/media/data/martin/LOESS/data/zrn_UPb/raw_data_Tb/Tb_all.csv",header=TRUE,stringsAsFactors=FALSE)
 data<-as.list(data)
 for(i in 1:length(data)){data[[i]]<-data[[i]][!is.na(data[[i]])]}
@@ -163,6 +163,7 @@ testtree<-clustree(closest,4,2,tpos)
 
 ggplot()+geom_segment(data=testtree$segments,aes(x=x,y=y,xend=xend,yend=yend))+geom_text(data=testtree$labels,aes(x=x,y=y,label=labels,hjust=hj,vjust=vj,angle=an))
 
-source("/media/ldata/martin/Projects/coding/R/provenance/pkg/noninst/dev_functions.r")
+#source("/media/ldata/martin/Projects/coding/R/provenance/pkg/noninst/dev_functions.r")
+source("/home/martin/Data/coding/R/provenance/pkg/noninst/dev_functions.r")
 plotDendrogram(data)
 plotDendrogram(data,classes=5,metric="C-v-M",method="ward.D")

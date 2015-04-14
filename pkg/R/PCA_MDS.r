@@ -21,21 +21,42 @@
 # }
 
 ### MDS ################
+# # define a function to calculate the dissimilarity matrix
+# dissimilarity <- function(data) {
+# 	# TODO: make method for calculation chooseable, allow for Sircombe & Hazelton, 2004 - and others?
+# 	# TODO: calculate based on log-transformed ages?
+# 	n = length(data)
+# 	# instantiate the dissimilarity matrix as an empty data frame
+# 	diss = as.data.frame(mat.or.vec(n,n))
+# 	rownames(diss) = names(data)
+# 	for (i in 1:n){   # loop through all possible pairs of samples
+# 		for (j in 1:n){  # calculate the kolmogorov-smirnov statistic
+# 			diss[i,j] = ks.test(data[[i]],data[[j]])$statistic
+# 		}
+# 	}
+# 	return(diss)
+# }
+
 # define a function to calculate the dissimilarity matrix
-dissimilarity <- function(data) {
-	# TODO: make method for calculation chooseable, allow for Sircombe & Hazelton, 2004 - and others?
+dissimilarity <- function(data,metric="K-S") {
+	# TODO: make method for calculation chooseable to allow for Sircombe & Hazelton, 2004 - and others?
 	# TODO: calculate based on log-transformed ages?
+	metric<-match.arg(metric,c("K-S","C-v-M"))
 	n = length(data)
 	# instantiate the dissimilarity matrix as an empty data frame
 	diss = as.data.frame(mat.or.vec(n,n))
 	rownames(diss) = names(data)
 	for (i in 1:n){   # loop through all possible pairs of samples
-		for (j in 1:n){  # calculate the kolmogorov-smirnov statistic
-			diss[i,j] = ks.test(data[[i]],data[[j]])$statistic
+		for (j in 1:n){  # calculate the dissimilarity
+			if(metric=="K-S"){
+				diss[i,j]<-KolmogorovSmirnov(data[[i]],data[[j]])
+			}else if(metric=="C-v-M")
+				diss[i,j]<-CramerVonMisesTwoSamples(data[[i]],data[[j]])
 		}
 	}
 	return(diss)
 }
+
 
 # # define a function to plot the MDS coordinates and connect the nearest neighbours
 # plotmapMDS <- function(mds,diss) {
@@ -59,7 +80,8 @@ dissimilarity <- function(data) {
 # }
 
 # define a function to plot the MDS coordinates and connect the nearest neighbours, ggplot2-style
-plotMDS <- function(mds,diss,col="",sym="",nearest=TRUE,labels=TRUE,symbols=TRUE,fcolour=NA,stretch=FALSE) {
+plotMDS <- function(mds,diss,col="",sym="",nearest=TRUE,labels=TRUE,symbols=TRUE,fcolour=NA,
+										stretch=FALSE,axes=FALSE,expand=FALSE) {
 	#quick and dirty, makes big assumptions about what mds looks like if it's not a two-column matrix.
 	#mds can be: data.frame(x,y,any,further,columns,...)
 	#
@@ -71,12 +93,14 @@ plotMDS <- function(mds,diss,col="",sym="",nearest=TRUE,labels=TRUE,symbols=TRUE
 	# nearest ... boolean - plot lines connecting nearest neighbours?
 	# labels  ... boolean - plot data labels (taken from row.names of mds)?
 	# symbols ... boolean - plot data points (useful if plotting only labels)?
-  # fcolour ... symbol fill colours - not very functional yet...
-	# stretch  ... boolean - strech plot to full extend, or use fixed x/y scale ratio
+	# fcolour ... symbol fill colours - not very functional yet...
+	# stretch ... boolean - strech plot to full extend, or use fixed x/y scale ratio
+	# axes    ... boolean, plot axis labels?
+	# expand  ... boolean, expand plot area to be square (only valid if stretch==FALSE)
 
-  # TODO: let labels optionally be taken from a column in mds
-  # TODO: if length(col) too great for brewer, switch to alternative colour scale
-  # TODO: more symbols for symbol scale
+	# TODO: let labels optionally be taken from a column in mds
+	# TODO: if length(col) too great for brewer, switch to alternative colour scale
+	# TODO: more symbols for symbol scale
 	# TODO: check diss if nearest==TRUE
 
 	require(ggplot2)
@@ -87,13 +111,13 @@ plotMDS <- function(mds,diss,col="",sym="",nearest=TRUE,labels=TRUE,symbols=TRUE
 	ddf<-as.data.frame(mds)
 	if(!all(c("x","y") %in% names(ddf)))names(ddf)[1:2]<-c("x","y")
 	# create a new (empty) plot
-#	plot(mds[,1],mds[,2],type='n')
+	#	plot(mds[,1],mds[,2],type='n')
 	p<-ggplot()
 	# draw lines between closest neighbours
-#	for (j in 1:nrow(mds)) {
-#		lines(c(mds[j,1],x1[j]),c(mds[j,2],y1[j]),lty=1)
-#		lines(c(mds[j,1],x2[j]),c(mds[j,2],y2[j]),lty=2)
-#	}
+	#	for (j in 1:nrow(mds)) {
+	#		lines(c(mds[j,1],x1[j]),c(mds[j,2],y1[j]),lty=1)
+	#		lines(c(mds[j,1],x2[j]),c(mds[j,2],y2[j]),lty=2)
+	#	}
 	if(nearest){
 		# indices of nearest and second nearest neighbours:
 		i = t(apply(as.matrix(diss),1,function(x) order(x))[2:3,])
@@ -106,7 +130,7 @@ plotMDS <- function(mds,diss,col="",sym="",nearest=TRUE,labels=TRUE,symbols=TRUE
 		p<-p+geom_segment(data=ddf,x=ddf[["x"]],y=ddf[["y"]],xend=x2,yend=y2,linetype="dashed")
 	}
 	# plot the configuration as labeled circles
-#	points(mds[,1],mds[,2],pch=21,cex=2.5,col='red',bg='white')
+	#	points(mds[,1],mds[,2],pch=21,cex=2.5,col='red',bg='white')
 	# TODO: a lot of checks on col and sym, sensible automatic assumptions
 	if(symbols){
 		if(length(ddf)>2){
@@ -137,7 +161,7 @@ plotMDS <- function(mds,diss,col="",sym="",nearest=TRUE,labels=TRUE,symbols=TRUE
 			p<-p+geom_point(data=ddf,aes(x=x,y=y),fill=c2,colour="black",size=ssize,shape=21)
 		}
 	}
-#	text(mds[,1],mds[,2],row.names(mds))
+	#	text(mds[,1],mds[,2],row.names(mds))
 	#add labels:
 	if(labels)p<-p+geom_text(data=ddf,aes(x=x,y=y),label=row.names(ddf),size=tsize)
 
@@ -145,21 +169,21 @@ plotMDS <- function(mds,diss,col="",sym="",nearest=TRUE,labels=TRUE,symbols=TRUE
 
 	cols<-c(rgb(t(col2rgb(defcol))/255))  #default colour
 	#print(cols)
-  #browser()
+	#browser()
 	if(col!=""){
-    if(length(fcolour)==0||is.na(fcolour)){
-      cols<-brewer_pal(type="div",palette=6)(length(unique(ddf[[col]])))
-    }else if(length(fcolour)==1){
-      #nothing to do
-    }else if(length(fcolour)==length(unique(ddf[[col]]))){
-      ucols<-fcolour
-      names(ucols)<-unique(ddf[[col]])
-      cols<-ucols[match(sort(unique(ddf[[col]])),names(ucols))]
-      # FIXME: allow reordering here...
-    }else{
-      warning("invalid fill colour parameter - using default")
-      #...to be precise: "leaving" default....
-    }
+		if(length(fcolour)==0||is.na(fcolour)){
+			cols<-brewer_pal(type="div",palette=6)(length(unique(ddf[[col]])))
+		}else if(length(fcolour)==1){
+			#nothing to do
+		}else if(length(fcolour)==length(unique(ddf[[col]]))){
+			ucols<-fcolour
+			names(ucols)<-unique(ddf[[col]])
+			cols<-ucols[match(sort(unique(ddf[[col]])),names(ucols))]
+			# FIXME: allow reordering here...
+		}else{
+			warning("invalid fill colour parameter - using default")
+			#...to be precise: "leaving" default....
+		}
 	}
 	#print(cols)
 	if(length(cols)>1)p<-p+scale_fill_manual(values=cols)
@@ -172,9 +196,18 @@ plotMDS <- function(mds,diss,col="",sym="",nearest=TRUE,labels=TRUE,symbols=TRUE
 		theme(panel.background=element_rect(fill=NA,colour="black"),plot.background=element_rect(fill=NA,colour=NA))
 	if(!stretch){
 		p<-p+coord_equal()
+		if(expand){
+			xrange<-range(ddf$x)
+			yrange<-range(ddf$y)
+			maxrange<-c(min(xrange[1],yrange[1]),max(xrange[2],yrange[2]))
+			p<-p+xlim(maxrange)+ylim(maxrange)
+		}
 	}
 	if(col!=""){
 		p<-p+guides(fill=guide_legend(title=NULL,order=2,override.aes=list(fill=cols,shape=21)),shape=guide_legend(title=NULL,order=1))
+	}
+	if(!axes){
+		p<-p+theme(axis.ticks=element_blank(), axis.text=element_blank())
 	}
 	return(p)
 }

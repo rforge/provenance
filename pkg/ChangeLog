@@ -33,3 +33,5 @@ plotKDE(): optimised KDE calculations for methods "jann" and "abramson"
 "epan2" + "rectangular" custom kernels now available (method="jann"/"abramson")
 restructured internal functions for KDE calculation into one (gkde())
 
+v 0.1-3
+plotMDS(): new parameters axes and expand

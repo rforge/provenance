@@ -2,6 +2,59 @@
 require(provenance)
 require(CDFt)
 
+#########################################
+## from http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_%28ggplot2%29/
+#########################################
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+	require(grid)
+	
+	# Make a list from the ... arguments and plotlist
+	plots <- c(list(...), plotlist)
+	
+	numPlots = length(plots)
+	
+	# If layout is NULL, then use 'cols' to determine layout
+	if (is.null(layout)) {
+		# Make the panel
+		# ncol: Number of columns of plots
+		# nrow: Number of rows needed, calculated from # of cols
+		layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+										 ncol = cols, nrow = ceiling(numPlots/cols))
+	}
+	
+	if (numPlots==1) {
+		print(plots[[1]])
+		
+	} else {
+		# Set up the page
+		grid.newpage()
+		pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+		
+		# Make each plot, in the correct location
+		for (i in 1:numPlots) {
+			# Get the i,j matrix positions of the regions that contain this subplot
+			matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+			
+			print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+																			layout.pos.col = matchidx$col))
+		}
+	}
+}
+
+#########################################
+
+
 # define a function to calculate the dissimilarity matrix
 dissimilarity <- function(data,metric="K-S") {
 	# TODO: make method for calculation chooseable to allow for Sircombe & Hazelton, 2004 - and others?
@@ -42,28 +95,6 @@ dissSH<-function(data,dataerrors){
 	}
 	row.names(diss)<-smpls
 	return(as.dist(diss))
-}
-
-plotDendrogram<-function(data,orientation=4,type=2,positions=c(1:length(data)),metric=c("K-S","C-v-M"),method="ward.D",classes=1){
-	#plots a dendrogram for the given data, according to specified metric
-	#wrapper for clustree(), see there for further parameters
-	#classes ... cuts tree into classes branches, colours leaves accordingly
-
-	#TODO: improve colouring of branches to include all lines of one branch
-	#      maybe implement in clustree rather, and return as extra column in $segments
-
-	diss<-dissimilarity(data,metric=metric)
-	closest<-hclust(as.dist(diss),method=method)
-
-	ids<-match(c(1:length(closest$labels)),closest$order)
-	positions<-positions[ids]
-	tree<-clustree(closest,orientation,type,positions,classes)
-
-	g<-ggplot()+
-		geom_segment(data=tree$segments,aes(x=x,y=y,xend=xend,yend=yend,colour=factor(branch)))+
-		geom_text(data=tree$labels,aes(x=x,y=y,label=labels,hjust=hj,vjust=vj,angle=an,colour=factor(branch)))+
-		scale_colour_manual(values=c("#000000",brewer_pal(type="qual",palette="Paired")(length(unique(tree$labels$branch)))),guide="none")
-	return(g)
 }
 
 clrTransform<-function(x){
@@ -179,8 +210,9 @@ plotKDE2<-function(data,title,limits=c(0,3000),breaks=NA_real_,bandwidth=NA,
 
 	# density values smaller than this value will be cur out in final plot
 	# prevents very long, drawn-out tails of effectively zero density
-	cutoffy<-1e-5
-	nplot<-2^11
+  #cutoffy<-1e-5
+  cutoffy<-0
+  nplot<-2^11
 	ncalc<-2^10
 
 	#data frame containing period boundaries and names
@@ -341,6 +373,7 @@ plotKDE2<-function(data,title,limits=c(0,3000),breaks=NA_real_,bandwidth=NA,
 	classpars$order<-c(1:length(classpars$class))
 	if(order=="auto"){
 		classpars$order<-order(classpars$class)
+		
 	}else if(order=="asis"){
 		#nothing to do?
 	}else if(is.numeric(order) && length(order)==length(classpars$class) && !anyDuplicated(order)){
@@ -401,7 +434,7 @@ plotKDE2<-function(data,title,limits=c(0,3000),breaks=NA_real_,bandwidth=NA,
 		data2<-rbind(data2,dd)	#collate new kde into data2
 	}
 	#cut out values effectively 0:
-	data2<-data2[data2$d>cutoffy,]
+	data2<-data2[data2$d>=cutoffy,]
 	data2<-data2[!is.na(data2$d),]
 
 # 	#adding new column "type" for classification, based on classes parameter:
@@ -440,9 +473,9 @@ plotKDE2<-function(data,title,limits=c(0,3000),breaks=NA_real_,bandwidth=NA,
 		}
 	}else if(length(fcolour)==length(classes)){
 		#match the right colours to the already sorted classes - there should be a better way to do this!
-		ucols<-unique(fcolour)
-		names(ucols)<-unique(classes)
-		fcolour<-ucols[match(classes,names(ucols))]
+		#ucols<-unique(fcolour)
+		#names(ucols)<-unique(classes)
+		#fcolour<-ucols[match(classes,names(ucols))]
 	}else{
 		warning("fcolour invalid - using default")
 		fcolour<-hsv(seq(0.08,1,length.out=ntypes),s=0.5,v=0.95,alpha=0.8)
@@ -532,6 +565,141 @@ plotKDE2<-function(data,title,limits=c(0,3000),breaks=NA_real_,bandwidth=NA,
 	return(g)
 }
 
+
+#########################################
+
+# define a function to plot the MDS coordinates and connect the nearest neighbours, ggplot2-style
+plotMDS <- function(mds,diss,col="",sym="",nearest=TRUE,labels=TRUE,symbols=TRUE,fcolour=NA,
+										stretch=FALSE,axes=FALSE,expand=FALSE) {
+	#quick and dirty, makes big assumptions about what mds looks like if it's not a two-column matrix.
+	#mds can be: data.frame(x,y,any,further,columns,...)
+	#
+	# mds     ... data.frame() or matrix with at least 2 columns representing x and y
+	#              coordinates calculated by cmdscale() or isoMDS()
+	# diss    ... (dis-)similarities of samples, only required if nearest==TRUE
+	# col     ... string giving the name of column in mds to be used for colour scale
+	# sym     ... string giving the name of column in mds to be used for symbol scale
+	# nearest ... boolean - plot lines connecting nearest neighbours?
+	# labels  ... boolean - plot data labels (taken from row.names of mds)?
+	# symbols ... boolean - plot data points (useful if plotting only labels)?
+	# fcolour ... symbol fill colours - not very functional yet...
+	# stretch ... boolean - strech plot to full extend, or use fixed x/y scale ratio
+	# axes    ... boolean, plot axis labels?
+	# expand  ... boolean, expand plot area to be square (only valid if stretch==FALSE)
+	
+	# TODO: let labels optionally be taken from a column in mds
+	# TODO: if length(col) too great for brewer, switch to alternative colour scale
+	# TODO: more symbols for symbol scale
+	# TODO: check diss if nearest==TRUE
+	
+	require(ggplot2)
+	require(scales)
+	defcol<-"lightblue"
+	ssize<-9
+	tsize<-3
+	ddf<-as.data.frame(mds)
+	if(!all(c("x","y") %in% names(ddf)))names(ddf)[1:2]<-c("x","y")
+	# create a new (empty) plot
+	#	plot(mds[,1],mds[,2],type='n')
+	p<-ggplot()
+	# draw lines between closest neighbours
+	#	for (j in 1:nrow(mds)) {
+	#		lines(c(mds[j,1],x1[j]),c(mds[j,2],y1[j]),lty=1)
+	#		lines(c(mds[j,1],x2[j]),c(mds[j,2],y2[j]),lty=2)
+	#	}
+	if(nearest){
+		# indices of nearest and second nearest neighbours:
+		i = t(apply(as.matrix(diss),1,function(x) order(x))[2:3,])
+		# plot coordinates for the lines
+		x1 = as.vector(ddf[i[,1],"x"])
+		y1 = as.vector(ddf[i[,1],"y"])
+		x2 = as.vector(ddf[i[,2],"x"])
+		y2 = as.vector(ddf[i[,2],"y"])
+		p<-p+geom_segment(data=ddf,x=ddf[["x"]],y=ddf[["y"]],xend=x1,yend=y1,linetype="solid")
+		p<-p+geom_segment(data=ddf,x=ddf[["x"]],y=ddf[["y"]],xend=x2,yend=y2,linetype="dashed")
+	}
+	# plot the configuration as labeled circles
+	#	points(mds[,1],mds[,2],pch=21,cex=2.5,col='red',bg='white')
+	# TODO: a lot of checks on col and sym, sensible automatic assumptions
+	if(symbols){
+		if(length(ddf)>2){
+			if(col==""){
+				if(sym==""){
+					p<-p+geom_point(data=ddf,aes_string(x="x",y="y"),fill=defcol,colour="black",size=ssize,shape=21)
+				}else{
+					p<-p+geom_point(data=ddf,aes_string(x="x",y="y",shape=sym),fill=defcol,colour="black",size=ssize)
+				}
+			}else{
+				if(sym==""){
+					p<-p+geom_point(data=ddf,aes_string(x="x",y="y",fill=col),colour="black",size=ssize,shape=21)
+				}else{
+					p<-p+geom_point(data=ddf,aes_string(x="x",y="y",fill=col,shape=sym),colour="black",size=ssize)
+				}
+			}
+		}else{
+			c2=defcol
+			if(col!=""){
+				if(length(col)>1){
+					warning("more than one colour value specified - using default")
+					c2<-defcol
+				}else{
+					# TODO: check if col IS a colour value
+					c2<-col
+				}
+			}
+			p<-p+geom_point(data=ddf,aes(x=x,y=y),fill=c2,colour="black",size=ssize,shape=21)
+		}
+	}
+	#	text(mds[,1],mds[,2],row.names(mds))
+	#add labels:
+	if(labels)p<-p+geom_text(data=ddf,aes(x=x,y=y),label=row.names(ddf),size=tsize)
+	
+	#apply colour scale, symbol scale, format plot:
+	
+	cols<-c(rgb(t(col2rgb(defcol))/255))  #default colour
+	#print(cols)
+	#browser()
+	if(col!=""){
+		if(length(fcolour)==0||is.na(fcolour)){
+			cols<-brewer_pal(type="div",palette=6)(length(unique(ddf[[col]])))
+		}else if(length(fcolour)==1){
+			#nothing to do
+		}else if(length(fcolour)==length(unique(ddf[[col]]))){
+			ucols<-fcolour
+			names(ucols)<-unique(ddf[[col]])
+			cols<-ucols[match(sort(unique(ddf[[col]])),names(ucols))]
+			# FIXME: allow reordering here...
+		}else{
+			warning("invalid fill colour parameter - using default")
+			#...to be precise: "leaving" default....
+		}
+	}
+	#print(cols)
+	if(length(cols)>1)p<-p+scale_fill_manual(values=cols)
+	if(sym!=""){
+		bks<-unique(ddf[[sym]])	# TODO: warn if too many, define new ones?
+		p<-p+scale_shape_manual(values=rep(c(21,22,24,23),length.out=10)[1:length(bks)])
+	}
+	p<-p+theme(axis.title.x=element_blank(),axis.title.y=element_blank())+
+		theme(panel.grid.minor=element_blank(),panel.grid.major=element_blank())+
+		theme(panel.background=element_rect(fill=NA,colour="black"),plot.background=element_rect(fill=NA,colour=NA))
+	if(!stretch){
+		p<-p+coord_equal()
+		if(expand){
+			xrange<-range(ddf$x)
+			yrange<-range(ddf$y)
+			maxrange<-c(min(xrange[1],yrange[1]),max(xrange[2],yrange[2]))
+			p<-p+xlim(maxrange)+ylim(maxrange)
+		}
+	}
+	if(col!=""){
+		p<-p+guides(fill=guide_legend(title=NULL,order=2,override.aes=list(fill=cols,shape=21)),shape=guide_legend(title=NULL,order=1))
+	}
+	if(!axes){
+		p<-p+theme(axis.ticks=element_blank(), axis.text=element_blank())
+	}
+	return(p)
+}
 
 
 #########################################
@@ -661,4 +829,111 @@ gkde<-function(data,bandwidth=optimal_bw(data,n=2^10),n=2^11,from,to,kernel="gau
 		ret<-fak(data,ev,bandwidth,kernel)
 	}
 	return(matrix(c(ev,ret),nrow=2,byrow=TRUE))
+}
+
+#########################################
+
+plotDendrogram<-function(data,orientation=4,type=2,positions=c(1:length(data)),metric=c("K-S","C-v-M"),method="ward.D",classes=1){
+  #plots a dendrogram for the given data, according to specified metric
+  #wrapper for clustree(), see there for further parameters
+  #classes ... cuts tree into classes branches, colours leaves accordingly
+  
+  #TODO: improve colouring of branches to include all lines of one branch
+  #      maybe implement in clustree rather, and return as extra column in $segments
+  
+  diss<-dissimilarity(data,metric=metric)
+  closest<-hclust(as.dist(diss),method=method)
+  
+  ids<-match(c(1:length(closest$labels)),closest$order)
+  positions<-positions[ids]
+  tree<-clustree(closest,orientation,type,positions,classes)
+  
+  g<-ggplot()+
+    geom_segment(data=tree$segments,aes(x=x,y=y,xend=xend,yend=yend,colour=factor(branch)))+
+    geom_text(data=tree$labels,aes(x=x,y=y,label=labels,hjust=hj,vjust=vj,angle=an,colour=factor(branch)),size=rel(4))+
+    scale_colour_manual(values=c("#000000",brewer_pal(type="qual",palette="Paired")(length(unique(tree$labels$branch)))),guide="none")
+  return(g)
+}
+
+clustree<-function(atree,orientation=c(1:4),type=c(1,2),positions=NULL,classes=1){
+  #takes a hclust structure and returns rendered coordinates to draw the tree,
+  #according to orientation and type parameters. Also returns leaf labels.
+  #generates segments of tree based on pre-calculated coordinates for leaves and in any orientation,
+  #unlike plot.hclust() or package ggdendro.
+  #positions takes y-positions in the order of drawing layout (atree$order), i.e. ascending values
+  #orientations ... braching direction: 1 top-down, 2 right-to-left, 3 bottom-up, 4 left-to-right
+  #type ... 1 uniform height steps, 2 calculated by hclust w/base 0, 3 same as 2, w/base = height from hclust
+  #classes ... cut tree into classes sub-branches, return as column in $segments and $leaves
+  
+  #TODO: type==3
+  
+  if(class(atree)!="hclust")stop("atree must be of class hclust")
+  stepval<-switch(orientation,1,1,-1,-1)
+  angle<-switch(orientation,270,0,90,0)
+  if(length(positions)==0){
+    positions<-match(c(1:length(atree$labels)),atree$order)
+  }else if(length(positions)==length(atree$labels)){
+    #nothing to do!?
+  }else{
+    stop("invalid positions")
+  }
+  # TODO: if positions not given, optionally compute from height/distances in hclust
+  # TODO: if a class/branch has only one member, plot in this colour
+  
+  #internal recursive function to parse the tree
+  subtree<-function(mergetable,curpos,branches){
+    newheight<-curpos+1
+    stree<-data.frame()
+    markers<-NULL
+    for(i in c(1:dim(mergetable)[1])){
+      if(!all(is.na(mergetable[i,])) && mergetable[i,1]<0 && mergetable[i,2]<0){
+        if(type==1){
+          x<-c(branches[-mergetable[i,1],"height"],branches[-mergetable[i,2],"height"],newheight)
+          xend<-c(newheight,newheight,newheight)
+        }else{
+          x<-c(branches[-mergetable[i,1],"height"],branches[-mergetable[i,2],"height"],atree$height[i])
+          xend<-rep(atree$height[i],3)
+        }
+        y<-c(branches[-mergetable[i,1],"position"],branches[-mergetable[i,2],"position"],branches[-mergetable[i,2],"position"])
+        yend<-c(branches[-mergetable[i,1],"position"],branches[-mergetable[i,2],"position"],branches[-mergetable[i,1],"position"])
+        markers<-c(markers,i)
+        branch<-ifelse(branches[-mergetable[i,1],"branch"]==branches[-mergetable[i,2],"branch"],branches[-mergetable[i,1],"branch"],0)
+        stree<-rbind(stree,data.frame(x=x,y=y,xend=xend,yend=yend,branch=branch))
+      }
+    }
+    branches[-mergetable[markers,1],"position"]<-(branches[-mergetable[markers,1],"position"]+branches[-mergetable[markers,2],"position"])/2
+    if(type==1){
+      branches[-mergetable[markers,1],"height"]<-newheight
+    }else{
+      branches[-mergetable[markers,1],"height"]<-atree$height[markers]
+    }
+    branches[-mergetable[markers,2],2:3]<-NA
+    mergetable[match(markers,mergetable)]<-mergetable[markers,1]
+    mergetable[markers,]<-NA
+    if(!all(is.na(mergetable)))stree<-rbind(stree,subtree(mergetable,newheight,branches))
+    
+    return(stree)
+  }
+  
+  ret<-list()
+  bclass<-cutree(atree,k=classes)
+  branches<-data.frame(id=c(1:length(positions)),height=as.double(rep(0,length.out=length(positions))),position=as.double(positions),branch=bclass)
+  ret$segments<-subtree(matrix(as.double(atree$merge),ncol=2),0.0,branches)
+  ret$labels<-data.frame(x=0,y=positions,labels=atree$labels,hj=1.2,vj=0.5,an=angle,branch=bclass)
+  #TODO: set labels' x-value based on tree height
+  #TODO: scale height to stepval? use heights from atree?
+  if(orientation==1){
+    ret$segments<-transform(ret$segments,x=y,xend=yend,y=x,yend=xend)
+    ret$labels<-transform(ret$labels,x=y,y=x,hj=-0.2)
+  }else if(orientation==3){
+    xmax<-max(c(ret$segments$x,ret$segments$xend))
+    ret$segments<-transform(ret$segments,x=y,xend=yend,y=xmax-x,yend=xmax-xend)
+    ret$labels<-transform(ret$labels,x=y,y=xmax-x,hj=-0.2)
+  }else if(orientation==4){
+    xmax<-max(c(ret$segments$x,ret$segments$xend))
+    ret$segments<-transform(ret$segments,x=xmax-x,xend=xmax-xend)
+    ret$labels<-transform(ret$labels,x=xmax-x,hj=-0.2)
+  }
+  
+  return(ret)
 }
